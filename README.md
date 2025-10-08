@@ -1,6 +1,6 @@
 <p>TradingViewのチャート下に配置する過熱感を視覚化したインジです。</p>
 <img width="652" height="108" alt="{19B367A8-5E02-484E-BC7C-47D849BCEE2D}" src="https://github.com/user-attachments/assets/b6024724-9089-405a-a844-31395cfda46c" />
-
+<br>
 
 <p>以下バックテスト結果です。</p>
 <br>

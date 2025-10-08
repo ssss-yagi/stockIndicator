@@ -1,0 +1,44 @@
+//@version=5
+indicator("RSI + MACD", shorttitle="RSI + MACD", overlay=false, precision=3, scale=scale.right)
+
+//==== Inputs
+rsiLen     = input.int(14, "RSI Length")
+fastLen    = input.int(12, "MACD Fast")
+slowLen    = input.int(26, "MACD Slow")
+macdSigLen = input.int(9,  "MACD Signal")
+normLen    = input.int(200,"Normalization lookback", minval=20)
+
+//==== tanh関数（自前）
+tanh_safe(x) =>
+    e2 = math.exp(-2.0 * math.abs(x))
+    (1.0 - e2) / (1.0 + e2) * math.sign(x)
+
+//==== RSI（-1〜+1に正規化）
+rsiNorm = (ta.rsi(close, rsiLen) - 50.0) / 50.0
+
+//==== MACDヒストグラム（正規化）
+macdLine   = ta.ema(close, fastLen) - ta.ema(close, slowLen)
+macdSignal = ta.ema(macdLine, macdSigLen)
+macdHist   = macdLine - macdSignal
+
+st    = ta.stdev(macdLine, normLen)
+denom = math.max(nz(st, 1.0) * 0.5, 1e-10)
+histN = tanh_safe(macdHist / denom)
+
+//==== 色設定
+colorMACDUp   = color.rgb(56, 142, 60)   // #388e3c
+colorMACDDown = color.rgb(136, 14, 79)   // #880e4f
+colorRSI      = color.rgb(255, 215, 0)   // #FFD700
+colorGuide    = color.rgb(184, 184, 184) // #b8b8b8
+
+//==== ガイドライン（RSIの買われすぎ・売られすぎ）
+hline( 0.6, "Overbought", color=colorGuide, linestyle=hline.style_dashed)
+hline(-0.6, "Oversold",   color=colorGuide, linestyle=hline.style_dashed)
+hline( 0.0, "Midline",    color=color.new(colorGuide, 60), linestyle=hline.style_dotted)
+
+//==== 描画
+plot(histN, style=plot.style_columns,
+     color = histN >= 0 ? colorMACDUp : colorMACDDown,
+     title="MACD Histogram")
+
+plot(rsiNorm, color=colorRSI, linewidth=2, title="RSI (normalized)")

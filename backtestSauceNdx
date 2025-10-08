@@ -1,0 +1,41 @@
+//@version=5
+strategy("NDX Uptrend Filter + RSI Oversold Buy Only",
+     overlay=true,
+     initial_capital=100000,
+     commission_type=strategy.commission.percent,
+     commission_value=0.1,
+     pyramiding=0,
+     default_qty_type=strategy.percent_of_equity,
+     default_qty_value=20,
+     calc_on_every_tick=true,
+     process_orders_on_close=true)
+
+//==== パラメータ ====
+rsiLen  = input.int(14,  "RSI Length")
+rsiBuy  = input.float(-0.6, "RSI Buy Threshold (normalized)", step=0.05)
+maLen   = input.int(200, "NDX MA Length (weeks)", minval=10)
+
+//==== NDX週足を取得 ====
+nasdaq_close = request.security("NASDAQ:NDX", "W", close, lookahead=barmerge.lookahead_off)
+nasdaq_ma    = request.security("NASDAQ:NDX", "W", ta.sma(close, maLen), lookahead=barmerge.lookahead_off)
+nasdaq_uptrend = nasdaq_close > nasdaq_ma
+
+//==== RSI（4時間足・現在の銘柄）====
+rsiRaw  = ta.rsi(close, rsiLen)
+rsiNorm = (rsiRaw - 50.0) / 50.0
+rsiBuySignal = rsiNorm < rsiBuy
+
+//==== エントリー・エグジット ====
+enterLong = nasdaq_uptrend and rsiBuySignal
+exitLong  = not nasdaq_uptrend   // NDXが200MA割れたら全ポジション落とす
+
+if (enterLong and strategy.position_size == 0)
+    strategy.entry("Long", strategy.long)
+
+if (exitLong and strategy.position_size > 0)
+    strategy.close("Long", comment="NDX below 200MA")
+
+//==== 補助表示 ====
+plot(rsiNorm, color=color.yellow, title="RSI (normalized)")
+hline(rsiBuy, "RSI Buy Threshold", color=color.new(color.yellow, 70), linestyle=hline.style_dashed)
+hline(0, "RSI Midline", color=color.new(color.gray, 80))

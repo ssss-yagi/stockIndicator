@@ -1,0 +1,46 @@
+//@version=5
+strategy("JP: Nikkei225 Uptrend Filter + RSI Buy, TP at +50%",
+     overlay=true,
+     initial_capital=1000000,
+     commission_type=strategy.commission.percent,
+     commission_value=0.1,
+     pyramiding=0,
+     default_qty_type=strategy.percent_of_equity,
+     default_qty_value=20,
+     calc_on_every_tick=true,
+     process_orders_on_close=true)
+
+// ===== パラメータ =====
+rsiLen   = input.int(14,  "RSI Length")
+rsiBuy   = input.float(-0.6, "RSI Buy Threshold (normalized)", step=0.05) // -0.6 ≒ RSI30
+maLen    = input.int(200, "Nikkei MA Length (weeks)", minval=10)
+nkSymbol = input.symbol("TVC:NI225", "Nikkei 225 Index Symbol")
+tpPct    = input.float(50.0, "Take Profit %", minval=1.0, step=1.0)       // 利確%（デフォ50%）
+
+// ===== 日経225（週足）を取得 → エントリー許可のみで使用 =====
+nk_close   = request.security(nkSymbol, "W", close, lookahead=barmerge.lookahead_off)
+nk_ma      = request.security(nkSymbol, "W", ta.sma(close, maLen), lookahead=barmerge.lookahead_off)
+nk_uptrend = nk_close > nk_ma
+
+// ===== 個別銘柄（現在のチャート銘柄 / 4時間足）RSI =====
+rsiRaw   = ta.rsi(close, rsiLen)
+rsiNorm  = (rsiRaw - 50.0) / 50.0
+rsiBuyOk = rsiNorm < rsiBuy
+
+// ===== エントリー条件（ロングのみ）=====
+enterLong = nk_uptrend and rsiBuyOk
+
+if (enterLong and strategy.position_size == 0)
+    strategy.entry("Long", strategy.long)
+
+// ===== 利確：建値から +tpPct% でクローズ（指数割れでは手仕舞いしない） =====
+if (strategy.position_size > 0)
+    avg = strategy.position_avg_price
+    tpPrice = avg * (1.0 + tpPct/100.0)
+    // limit注文を毎バー更新（pyramiding=0 なので平均建値は固定）
+    strategy.exit("TP", from_entry="Long", limit=tpPrice, comment="TakeProfit")
+
+// ===== 参考描画 =====
+plot(rsiNorm, color=color.yellow, title="RSI (normalized)")
+hline(rsiBuy, "RSI Buy Threshold", color=color.new(color.yellow, 70), linestyle=hline.style_dashed)
+hline(0, "RSI Midline", color=color.new(color.gray, 80))
